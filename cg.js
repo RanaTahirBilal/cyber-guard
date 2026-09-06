@@ -119,8 +119,13 @@
   var sig = document.getElementById('sig');
   if(!sig) return;
   var path = document.getElementById('sigpath');
-  if(path && path.getTotalLength){
-    try{ path.style.setProperty('--len', Math.ceil(path.getTotalLength())); }catch(e){}
+  /* a custom property needs a string with a unit; a bare number is dropped
+     silently and the dash animation never arms */
+  if(path && typeof path.getTotalLength === 'function'){
+    try{
+      var len = Math.ceil(path.getTotalLength());
+      if(len > 0){ path.style.setProperty('--len', len + 'px'); }
+    }catch(e){}
   }
   function go(){ sig.classList.add('go'); }
   if(!('IntersectionObserver' in window) ||
@@ -131,7 +136,7 @@
     es.forEach(function(e){ if(e.isIntersecting){ go(); io.disconnect(); } });
   }, {threshold:.3});
   io.observe(sig);
-  setTimeout(go, 10000);   /* never leave the journey undrawn */
+  setTimeout(go, 4000);   /* never leave the journey undrawn */
 })();
 
 /* ---------- reveals ------------------------------------------------------ */
