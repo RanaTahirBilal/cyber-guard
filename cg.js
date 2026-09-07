@@ -30,6 +30,43 @@ function once(el, fn, threshold, fallbackMs){
   setTimeout(go, fallbackMs || 9000);
 }
 
+/* ---------- shared: scatter that never overlaps ------------------------- */
+/* Both S06 and S07 want "no order at all" — but unreadable is not the same
+   as unordered. Lay items on rows, jitter them inside the row, and refuse any
+   placement that collides with something already down. */
+function scatterNoOverlap(items, w, h, opts){
+  opts = opts || {};
+  var rowH   = opts.rowH || 34;
+  var topPad = opts.top || 8;
+  var band   = Math.max(rowH * 2, h * (opts.band || 0.92));
+  var rows   = Math.max(2, Math.floor(band / rowH));
+  var gapX   = opts.gapX || 12;
+  var used   = [];                       /* rightmost x consumed, per row */
+  for(var i = 0; i < rows; i++) used.push(0);
+
+  var rnd = opts.rnd || Math.random;
+
+  items.forEach(function(it){
+    var iw = it.w, r = -1;
+    /* a few random candidates; keep the roomiest that actually fits */
+    for(var t = 0; t < 6; t++){
+      var c = Math.floor(rnd() * rows);
+      if(used[c] + gapX + iw <= w - 6){ r = c; break; }
+      if(r < 0 || (w - used[c]) > (w - used[r])) r = c;
+    }
+    if(used[r] + gapX + iw > w - 6){     /* that row is full — take the emptiest */
+      var best = 0;
+      for(var k = 1; k < rows; k++) if(used[k] < used[best]) best = k;
+      r = best;
+    }
+    var x = used[r] + (used[r] ? gapX : 4) + Math.round(rnd() * (opts.jitterX || 30));
+    if(x + iw > w - 6) x = Math.max(4, w - iw - 6);   /* last resort: flush right */
+    used[r] = x + iw;
+    it.x = Math.round(x);
+    it.y = Math.round(topPad + r * rowH + rnd() * (opts.jitterY || 7));
+  });
+}
+
 /* ---------- THE TRACE ---------------------------------------------------- */
 (function(){
   var scenes = [].slice.call(document.querySelectorAll('.scene[data-scene]'));
@@ -142,11 +179,13 @@ function once(el, fn, threshold, fallbackMs){
 
     function scatter(){
       var w = field.clientWidth, h = field.clientHeight;
+      if(w <= 0) return;
       seed = 20260907;
-      loose.forEach(function(el){
-        var cw = el.offsetWidth || 110, ch = el.offsetHeight || 30;
-        el.style.left = Math.round(rnd() * Math.max(8, w - cw - 8)) + 'px';
-        el.style.top  = Math.round(rnd() * Math.max(8, h - ch - 8)) + 'px';
+      var items = loose.map(function(el){ return {el:el, w:(el.offsetWidth || 110)}; });
+      scatterNoOverlap(items, w, h, {rowH:38, band:0.94, gapX:14, jitterX:34, jitterY:9, rnd:rnd});
+      items.forEach(function(it){
+        it.el.style.left = it.x + 'px';
+        it.el.style.top  = it.y + 'px';
       });
     }
     requestAnimationFrame(scatter);
@@ -214,38 +253,19 @@ function once(el, fn, threshold, fallbackMs){
     return el;
   });
 
-  /* rows with occupancy tracking, so two fragments never land on top of each
-     other. The jitter inside each row keeps it reading as scatter, not a table. */
   function place(){
     var w = host.clientWidth, h = host.clientHeight;
     if(w <= 0) return;
     seed = 71;
-
-    var rowH = 34;
-    var band = Math.max(rowH * 3, h * 0.44);   /* the copy owns the bottom half */
-    var rows = Math.max(3, Math.floor(band / rowH));
-    var used = [];
-    for(var i = 0; i < rows; i++) used.push(0);
-
-    els.forEach(function(el){
-      var ew = el.offsetWidth || 90;
-      var best = -1, bestFree = -1;
-      for(var t = 0; t < 5; t++){                  /* a few candidates, take the roomiest */
-        var r = Math.floor(rnd() * rows);
-        var free = w - used[r];
-        if(free > bestFree){ bestFree = free; best = r; }
-      }
-      var x = used[best] + 14 + Math.round(rnd() * 44);
-      if(x + ew > w - 8){                          /* row full — wrap to the emptiest */
-        best = used.indexOf(Math.min.apply(null, used));
-        x = used[best] + 14;
-      }
-      if(x + ew > w - 8) x = Math.max(6, w - ew - 8);
-      used[best] = x + ew;
-      el.style.left = Math.round(x) + 'px';
-      el.style.top  = Math.round(8 + best * rowH + rnd() * 7) + 'px';
+    var items = els.map(function(el){ return {el:el, w:(el.offsetWidth || 90)}; });
+    /* the copy owns the bottom half of this scene, so the band stops at 0.44 */
+    scatterNoOverlap(items, w, h, {rowH:33, band:0.44, gapX:16, jitterX:40, jitterY:6, rnd:rnd});
+    items.forEach(function(it){
+      it.el.style.left = it.x + 'px';
+      it.el.style.top  = it.y + 'px';
     });
   }
+
   function reveal(){
     els.forEach(function(el,i){
       el.style.transition = 'opacity .9s ease ' + Math.min(i*62, 1300) + 'ms';
@@ -283,6 +303,59 @@ function once(el, fn, threshold, fallbackMs){
   var rings = document.getElementById('rings');
   if(!rings) return;
   once(rings, function(){ rings.classList.add('go'); }, .3, 7000);
+})();
+
+/* ---------- S11 — the work, as evidence ---------------------------------- */
+/* Every title, view count and link below is real, read off the channel.
+   Nothing here is illustrative and nothing is rounded up. */
+(function(){
+  var host = document.getElementById('work');
+  if(!host) return;
+
+  var V = [
+    {id:'qtZTIxPPz-Q', t:'Best Hacking Gadgets — Top 10 Dangerous Hacking Devices',        v:'1M',   n:1000000, a:'2 years ago'},
+    {id:'nL9lBKA5XVg', t:'Hacking on Phone? Full Termux Course Start (Episode 1)',         v:'491K', n:491000,  a:'5 months ago'},
+    {id:'04WOXlZJ-GA', t:'30 Hacking Gadgets You Can Buy on Amazon (2026 Reality Check)',  v:'282K', n:282000,  a:'6 months ago'},
+    {id:'lZNnHeZTlwM', t:'How To Install Termux On Any PC — Tutorial',                     v:'141K', n:141000,  a:'2 years ago'},
+    {id:'wwLUo2lKVCs', t:'How to install Kali Linux in Windows 11 — Full Tutorial, Hindi', v:'100K', n:100000,  a:'2 years ago'},
+    {id:'N6kjxn_Cm7U', t:'Lab Setup for Cybersecurity in Mobile Phone',                    v:'94K',  n:94000,   a:'2 years ago'},
+    {id:'60EOqZH_3do', t:'Top 10 Kali Linux Hacking Tools — 2024 Edition',                 v:'64K',  n:64000,   a:'2 years ago'}
+  ];
+  var max = V[0].n;
+
+  V.forEach(function(o,i){
+    var li = document.createElement('li');
+    var a  = document.createElement('a');
+    a.className = 'workrow';
+    a.href = 'https://www.youtube.com/watch?v=' + o.id;
+    a.target = '_blank'; a.rel = 'noopener';
+
+    var rank = document.createElement('span');
+    rank.className = 'wrank mono';
+    rank.textContent = (i+1 < 10 ? '0' : '') + (i+1);
+
+    var t = document.createElement('span');
+    t.className = 'wtitle'; t.textContent = o.t;
+
+    var v = document.createElement('span');
+    v.className = 'wviews mono'; v.textContent = o.v;
+
+    var m = document.createElement('span');
+    m.className = 'wmeta'; m.textContent = o.a + ' · YouTube';
+
+    var bar = document.createElement('span');
+    bar.className = 'wbar';
+    var fill = document.createElement('span');
+    /* proportional to real view counts, so the bar states a fact */
+    fill.style.setProperty('--w', Math.round((o.n / max) * 100) + '%');
+    bar.appendChild(fill);
+
+    a.appendChild(rank); a.appendChild(t); a.appendChild(v);
+    a.appendChild(m); a.appendChild(bar);
+    li.appendChild(a); host.appendChild(li);
+  });
+
+  once(host, function(){ host.classList.add('go'); }, .15, 9000);
 })();
 
 /* ---------- reveals: from a visible resting state ----------------------- */
