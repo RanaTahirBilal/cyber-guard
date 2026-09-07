@@ -109,7 +109,13 @@ a{ color:inherit }
   background:rgba(11,15,18,.72); backdrop-filter:blur(14px);
   border-bottom:1px solid transparent; transition:border-color .3s, background .3s;
 }
-.nav.lit{ border-bottom-color:var(--rule) }
+.nav.lit{
+  border-bottom-color:var(--rule);
+  /* a fixed bar's real backdrop is whatever scrolls under it, which the DOM
+     cannot express — over the two paper scenes .72 composited to 3.36:1 on the
+     nav links. Nearly opaque once scrolled, so it reads the same over both. */
+  background:rgba(8,11,14,.94);
+}
 .brand{ display:flex; align-items:center; gap:10px; text-decoration:none; margin-right:auto }
 /* PLACEHOLDER MARK — replaced when the real logo arrives */
 .bmark{
