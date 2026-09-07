@@ -305,57 +305,89 @@ function scatterNoOverlap(items, w, h, opts){
   once(rings, function(){ rings.classList.add('go'); }, .3, 7000);
 })();
 
-/* ---------- S11 — the work, as evidence ---------------------------------- */
-/* Every title, view count and link below is real, read off the channel.
-   Nothing here is illustrative and nothing is rounded up. */
+/* ---------- S11 — the work, watchable in place --------------------------- */
+/* Real thumbnails, real titles, real view counts, straight off the channel.
+   Click-to-play facades: no YouTube script loads until somebody actually
+   presses play, so the page stays fast and nothing is tracked on arrival. */
 (function(){
   var host = document.getElementById('work');
   if(!host) return;
 
   var V = [
-    {id:'qtZTIxPPz-Q', t:'Best Hacking Gadgets — Top 10 Dangerous Hacking Devices',        v:'1M',   n:1000000, a:'2 years ago'},
-    {id:'nL9lBKA5XVg', t:'Hacking on Phone? Full Termux Course Start (Episode 1)',         v:'491K', n:491000,  a:'5 months ago'},
-    {id:'04WOXlZJ-GA', t:'30 Hacking Gadgets You Can Buy on Amazon (2026 Reality Check)',  v:'282K', n:282000,  a:'6 months ago'},
-    {id:'lZNnHeZTlwM', t:'How To Install Termux On Any PC — Tutorial',                     v:'141K', n:141000,  a:'2 years ago'},
-    {id:'wwLUo2lKVCs', t:'How to install Kali Linux in Windows 11 — Full Tutorial, Hindi', v:'100K', n:100000,  a:'2 years ago'},
-    {id:'N6kjxn_Cm7U', t:'Lab Setup for Cybersecurity in Mobile Phone',                    v:'94K',  n:94000,   a:'2 years ago'},
-    {id:'60EOqZH_3do', t:'Top 10 Kali Linux Hacking Tools — 2024 Edition',                 v:'64K',  n:64000,   a:'2 years ago'}
+    {id:'qtZTIxPPz-Q', t:'Best Hacking Gadgets — Top 10 Dangerous Hacking Devices',        v:'1M',   a:'2 years ago'},
+    {id:'nL9lBKA5XVg', t:'Hacking on Phone? Full Termux Course Start (Episode 1)',         v:'491K', a:'5 months ago'},
+    {id:'04WOXlZJ-GA', t:'30 Hacking Gadgets You Can Buy on Amazon (2026 Reality Check)',  v:'282K', a:'6 months ago'},
+    {id:'lZNnHeZTlwM', t:'How To Install Termux On Any PC — Tutorial',                     v:'141K', a:'2 years ago'},
+    {id:'wwLUo2lKVCs', t:'How to install Kali Linux in Windows 11 — Full Tutorial, Hindi', v:'100K', a:'2 years ago'},
+    {id:'N6kjxn_Cm7U', t:'Lab Setup for Cybersecurity in Mobile Phone',                    v:'94K',  a:'2 years ago'},
+    {id:'60EOqZH_3do', t:'Top 10 Kali Linux Hacking Tools — 2024 Edition',                 v:'64K',  a:'2 years ago'}
   ];
-  var max = V[0].n;
+
+  function play(shell, o){
+    if(shell.dataset.playing) return;
+    shell.dataset.playing = '1';
+    var f = document.createElement('iframe');
+    f.className = 'vframe';
+    f.src = 'https://www.youtube-nocookie.com/embed/' + o.id + '?autoplay=1&rel=0&modestbranding=1';
+    f.title = o.t;
+    f.loading = 'lazy';
+    f.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+    f.setAttribute('allowfullscreen','');
+    f.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
+    shell.innerHTML = '';
+    shell.appendChild(f);
+  }
 
   V.forEach(function(o,i){
     var li = document.createElement('li');
-    var a  = document.createElement('a');
-    a.className = 'workrow';
-    a.href = 'https://www.youtube.com/watch?v=' + o.id;
-    a.target = '_blank'; a.rel = 'noopener';
+    li.className = 'vcard' + (i === 0 ? ' feat' : '');
+
+    var shell = document.createElement('div');
+    shell.className = 'vshell';
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'vplay';
+    btn.setAttribute('aria-label', 'Play: ' + o.t);
+
+    var img = document.createElement('img');
+    img.className = 'vthumb';
+    img.loading = i === 0 ? 'eager' : 'lazy';
+    img.decoding = 'async';
+    img.width = 1280; img.height = 720;
+    img.alt = '';
+    img.src = 'https://i.ytimg.com/vi/' + o.id + '/maxresdefault.jpg';
+    /* maxres does not exist for every upload — fall back rather than show a gap */
+    img.addEventListener('error', function once(){
+      img.removeEventListener('error', once);
+      img.src = 'https://i.ytimg.com/vi/' + o.id + '/hqdefault.jpg';
+    });
+
+    var glyph = document.createElement('span');
+    glyph.className = 'vglyph'; glyph.setAttribute('aria-hidden','true');
 
     var rank = document.createElement('span');
-    rank.className = 'wrank mono';
+    rank.className = 'vrank mono'; rank.setAttribute('aria-hidden','true');
     rank.textContent = (i+1 < 10 ? '0' : '') + (i+1);
 
-    var t = document.createElement('span');
-    t.className = 'wtitle'; t.textContent = o.t;
+    btn.appendChild(img); btn.appendChild(glyph); btn.appendChild(rank);
+    btn.addEventListener('click', function(){ play(shell, o); });
+    shell.appendChild(btn);
 
-    var v = document.createElement('span');
-    v.className = 'wviews mono'; v.textContent = o.v;
+    var meta = document.createElement('div');
+    meta.className = 'vmeta';
+    var t = document.createElement('h3');
+    t.className = 'vtitle'; t.textContent = o.t;
+    var s = document.createElement('p');
+    s.className = 'vstat mono';
+    s.innerHTML = '<b>' + o.v + '</b> views &middot; ' + o.a;
+    meta.appendChild(t); meta.appendChild(s);
 
-    var m = document.createElement('span');
-    m.className = 'wmeta'; m.textContent = o.a + ' · YouTube';
-
-    var bar = document.createElement('span');
-    bar.className = 'wbar';
-    var fill = document.createElement('span');
-    /* proportional to real view counts, so the bar states a fact */
-    fill.style.setProperty('--w', Math.round((o.n / max) * 100) + '%');
-    bar.appendChild(fill);
-
-    a.appendChild(rank); a.appendChild(t); a.appendChild(v);
-    a.appendChild(m); a.appendChild(bar);
-    li.appendChild(a); host.appendChild(li);
+    li.appendChild(shell); li.appendChild(meta);
+    host.appendChild(li);
   });
 
-  once(host, function(){ host.classList.add('go'); }, .15, 9000);
+  once(host, function(){ host.classList.add('go'); }, .12, 9000);
 })();
 
 /* ---------- reveals: from a visible resting state ----------------------- */
